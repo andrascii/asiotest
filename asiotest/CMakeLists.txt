@@ -10,8 +10,15 @@ set(AppHeadersDir include)
 aux_source_directory(${AppSourcesDir} AppSourcesList)
 file(GLOB_RECURSE AppHeadersList "include/*.h")
 
+if(MSVC)
+    add_definitions(
+        /await
+        -DBOOST_ASIO_DISABLE_CONCEPTS
+    )
+endif()
+
 add_executable(
-    ${AppName} 
+    ${AppName}
     ${AppSourcesList}
     ${AppHeadersList}
 )
@@ -19,15 +26,13 @@ add_executable(
 include_directories(
     ${AppHeadersDir}
     ${Boost_INCLUDE_DIRS}
-	${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 target_link_libraries(
     ${AppName}
     ${Boost_LIBRARIES}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_ASIO_LIBRARY}
-    ${Boost_REGEX_LIBRARY}
-    pthread
+	${Boost_SYSTEM_LIBRARY}
+	${Boost_FILESYSTEM_LIBRARY}
+	${Boost_ASIO_LIBRARY}
 )

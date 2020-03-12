@@ -1,50 +1,35 @@
 #include "server.h"
 #include "common.h"
 #include <thread>
+#include <cassert>
 
-Server::Server(int16_t port)
-  : endpoint_(boost::asio::ip::tcp::v4(), port)
-  , acceptor_(accept_io_service_, endpoint_) {
+Server::Server(uint16_t port) {
+  acceptor_ = std::make_unique<Acceptor>(
+    io_service_pool_.io_service(),
+    [this](const SocketPtr& socket) { push_incoming_connection(socket); },
+    port);
 }
 
-Server::~Server() {
-  if (acceptor_thread.joinable()) {
-    acceptor_thread.join();
-  }
+bool Server::await_ready() const {
+  std::lock_guard locker(incoming_connections_mutex_);
+  return !incoming_connections_.empty();
 }
 
-void Server::start_loop() {
-  accept_incoming_connection(std::make_shared<boost::asio::ip::tcp::socket>(io_service_));
-  std::thread acceptor_thread(&Server::acceptor_thread, this);
-  io_service_.run();
+void Server::await_suspend(std::experimental::coroutine_handle<> handle) {
+  awaiters_.push(handle);
 }
 
-void Server::accept_incoming_connection(const Server::SocketPtr& incoming_socket) {
-  acceptor_.async_accept(*incoming_socket, boost::bind(&Server::handle_accept, this, incoming_socket, _1));
+std::shared_ptr<boost::asio::ip::tcp::socket> Server::await_resume() {
+  std::lock_guard locker(incoming_connections_mutex_);
+  SocketPtr socket = extract_incoming_connection();
+  assert(socket);
+  return socket;
 }
 
-void Server::handle_accept(Server::SocketPtr socket, const boost::system::error_code& error) {
-  if (error) {
-    std::cout << "Server::handle_accept: " << error.message() << std::endl;
-    return;
-  }
-
-  {
-    std::lock_guard<std::mutex> locker(incoming_sockets_mutex_);
-    incoming_sockets_.push(socket);
-  }
-
-  accept_incoming_connection(std::make_shared<boost::asio::ip::tcp::socket>(io_service_));
-}
-
-void Server::acceptor_thread() {
-  Common::set_thread_name("Acceptor Thread");
-  accept_io_service_.run();
-}
-
+/*
 void Server::payload_thread() {
   while(true) {
-    SockPtr incoming_socket = extract_incoming_socket();
+    SocketPtr incoming_socket = extract_incoming_connection();
 
     if (!incoming_socket) {
       std::this_thread::yield();
@@ -57,16 +42,37 @@ void Server::payload_thread() {
     });
   }
 }
+*/
 
-SockPtr Server::extract_incoming_socket() {
-  std::lock_guard<std::mutex> locker(incoming_sockets_mutex_);
+void Server::push_incoming_connection(const SocketPtr& incoming_connection) {
+  std::lock_guard locker(incoming_connections_mutex_);
+  incoming_connections_.push(incoming_connection);
 
-  if (incoming_sockets_.empty()) {
+  if (has_awaiter()) {
+    auto awaiter_handle = extract_awaiter();
+    awaiter_handle.resume();
+  }
+}
+
+Server::SocketPtr Server::extract_incoming_connection() {
+  std::lock_guard locker(incoming_connections_mutex_);
+
+  if (incoming_connections_.empty()) {
     return nullptr;
   }
 
-  SockPtr incoming_socket = incoming_sockets_.front();
-  incoming_sockets_.pop();
+  SocketPtr incoming_socket = incoming_connections_.front();
+  incoming_connections_.pop();
 
   return incoming_socket;
+}
+
+bool Server::has_awaiter() const {
+  return !awaiters_.empty();
+}
+
+std::experimental::coroutine_handle<> Server::extract_awaiter() {
+  const auto awaiter_handle = awaiters_.front();
+  incoming_connections_.pop();
+  return awaiter_handle;
 }
