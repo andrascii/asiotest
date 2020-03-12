@@ -12,7 +12,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(Boost_DEBUG ON)
 set(Boost_USE_STATIC_LIBS ON)
-find_package(Boost REQUIRED system date_time program_options filesystem COMPONENTS)
+find_package(Boost REQUIRED thread system date_time program_options filesystem COMPONENTS)
 message("Boost found ${Boost_FOUND}")
 
 add_subdirectory(${AppName})

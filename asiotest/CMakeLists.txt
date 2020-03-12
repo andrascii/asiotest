@@ -15,6 +15,13 @@ if(MSVC)
         /await
         -DBOOST_ASIO_DISABLE_CONCEPTS
     )
+elseif(APPLE)
+    add_definitions(
+        -fcoroutines-ts
+        -stdlib=libc++
+        -std=c++2a
+        -DBOOST_ASIO_DISABLE_CONCEPTS
+    )
 endif()
 
 add_executable(
@@ -33,6 +40,14 @@ target_link_libraries(
     ${AppName}
     ${Boost_LIBRARIES}
 	${Boost_SYSTEM_LIBRARY}
-	${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_THREAD}
 	${Boost_ASIO_LIBRARY}
 )
+
+if(APPLE)
+    target_link_libraries(
+        ${AppName}
+        pthread
+    )
+endif()

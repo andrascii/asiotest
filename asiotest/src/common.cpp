@@ -1,10 +1,12 @@
 #include "common.h"
 #include <string>
 
-#ifndef WIN32
-#include <sys/prctl.h>
-#else
+#if defined(WIN32)
 #include <windows.h>
+#elif defined(__APPLE__)
+#include <pthread.h>
+#else
+#include <sys/prctl.h>
 #endif
 
 #if defined (WIN32)
@@ -47,6 +49,9 @@ namespace Common {
 void set_thread_name(const std::string& name) {
 #ifdef WIN32
   win_set_thread_name(static_cast<DWORD>(-1), name);
+#elif defined(__APPLE__)
+  //const pthread_t pid = pthread_self();
+  pthread_setname_np(name.data());
 #else
   prctl(PR_SET_NAME, name.data(), 0, 0, 0);
 #endif

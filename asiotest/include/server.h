@@ -24,8 +24,7 @@ public:
 private:
   void push_incoming_connection(const SocketPtr& incoming_connection);
   SocketPtr extract_incoming_connection();
-
-  bool has_awaiter() const;
+  
   std::experimental::coroutine_handle<> extract_awaiter();
 
 private:
@@ -35,6 +34,7 @@ private:
   mutable std::mutex incoming_connections_mutex_;
   std::queue<SocketPtr> incoming_connections_;
 
+  mutable std::mutex awaiters_mutex_;
   std::queue<std::experimental::coroutine_handle<>> awaiters_;
 };
 

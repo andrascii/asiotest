@@ -16,7 +16,7 @@ public:
     io_thread_work_ = std::make_shared<IoServiceWork>(io_service_);
 
     for (size_t i = 0; i < std::thread::hardware_concurrency(); ++i) {
-      thread_group_.create_thread([this, i] {
+      thread_group_.create_thread([=, this] {
         std::stringstream stream;
         stream << "Socket IO Thread #" << i;
         io_service_thread(io_service_, stream.str());
